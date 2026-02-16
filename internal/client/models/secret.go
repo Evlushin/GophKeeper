@@ -31,6 +31,7 @@ type ListRequest struct {
 }
 
 type SecretData struct {
+	ID        string    `json:"id"`
 	DataType  DataType  `json:"type"`
 	Title     string    `json:"title"`
 	Metadata  string    `json:"metadata"`

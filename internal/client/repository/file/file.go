@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -35,6 +36,17 @@ func NewStore(cfg *config.Config) (*Store, error) {
 		mux: &sync.RWMutex{},
 		s:   make(map[string]models.SaveData),
 		cfg: cfg,
+	}
+
+	_, err := os.Stat(cfg.Secret.File)
+	if os.IsNotExist(err) {
+		file, err := os.Create(cfg.Secret.File)
+		if err != nil {
+			return nil, fmt.Errorf("create file: %v", err)
+		}
+		defer file.Close()
+	} else if err != nil {
+		return nil, fmt.Errorf("check file: %v", err)
 	}
 
 	if err := store.load(); err != nil && !os.IsNotExist(err) {
@@ -83,7 +95,7 @@ func (st *Store) Save() error {
 }
 
 // ListSecret список секретов.
-func (st *Store) ListSecret(ctx context.Context, req models.ListRequest) (map[string]models.SaveData, error) {
+func (st *Store) ListSecret(ctx context.Context, req models.ListRequest) ([]models.SaveData, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
@@ -93,25 +105,22 @@ func (st *Store) ListSecret(ctx context.Context, req models.ListRequest) (map[st
 	default:
 	}
 
-	var (
-		res   map[string]models.SaveData
-		isAdd bool
-	)
-	for id, secret := range st.s {
-		isAdd = true
-		if req.Type != "" && models.DataType(req.Type) != secret.DataType {
-			isAdd = false
-		}
+	var result []models.SaveData
+	for _, secret := range st.s {
 		if secret.IsDelete {
-			isAdd = false
+			continue
 		}
-
-		if isAdd {
-			res[id] = secret
+		if req.Type != "" && models.DataType(req.Type) != secret.DataType {
+			continue
 		}
+		result = append(result, secret)
 	}
 
-	return res, nil
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].UpdatedAt.Before(result[j].UpdatedAt)
+	})
+
+	return result, nil
 }
 
 // DeleteSecret помечает секрет как удаленный.
@@ -173,16 +182,21 @@ func (st *Store) ShowSecret(ctx context.Context, req models.ShowRequest) (*model
 		return nil, myerrors.ErrSecretAlreadyDeleted
 	}
 
-	//var file
-	//if secret.FileStore != "" {
-	//	file, err := os.Open(secret.FileStore)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("open file: %w", err)
-	//	}
-	//}
+	var (
+		file io.Reader
+		err  error
+	)
+
+	if secret.FileStore != "" {
+		file, err = os.Open(secret.FileStore)
+		if err != nil {
+			return nil, fmt.Errorf("open file: %w", err)
+		}
+	}
 
 	return &models.ShowResponse{
 		SecretData: secret.SecretData,
+		Reader:     file,
 	}, nil
 }
 
@@ -212,6 +226,8 @@ func (st *Store) StoreSecret(ctx context.Context, req models.StoreRequest) error
 
 	req.SecretData.CreatedAt = time.Now()
 	req.SecretData.UpdatedAt = time.Now()
+	req.ID = id
+
 	st.s[id] = models.SaveData{
 		SecretData: req.SecretData,
 		IsDelete:   false,
@@ -279,17 +295,13 @@ func (st *Store) StoreFile(ctx context.Context, req models.StoreFileRequest) (*m
 
 	filePath := st.generateFilePath(req.ID)
 
-	st.mux.Lock()
-	defer st.mux.Unlock()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-
 	// Создаем временный файл
 	tmpFile := filePath + ".tmp"
+
+	if err := os.MkdirAll(filepath.Dir(tmpFile), 0755); err != nil {
+		return nil, fmt.Errorf("cannot create directory:", err)
+	}
+
 	file, err := os.Create(tmpFile)
 	if err != nil {
 		return nil, fmt.Errorf("create temp file: %v", err)
@@ -298,8 +310,14 @@ func (st *Store) StoreFile(ctx context.Context, req models.StoreFileRequest) (*m
 
 	_, err = st.copyWithContext(ctx, file, req.Reader, req.ChunkSize)
 	if err != nil {
+		file.Close()
 		os.Remove(tmpFile)
 		return nil, fmt.Errorf("copy file data: %w", err)
+	}
+
+	if err = file.Close(); err != nil {
+		os.Remove(tmpFile)
+		return nil, fmt.Errorf("close temp file: %w", err)
 	}
 
 	if err = os.Rename(tmpFile, filePath); err != nil {

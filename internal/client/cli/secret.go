@@ -82,11 +82,6 @@ func getSecretData(cmd *cobra.Command) (*models.StoreRequest, error) {
 	switch dataType {
 	case models.BinaryData:
 		data, _ := cmd.Flags().GetString("data")
-
-		if data != "" {
-			d = []byte(strings.TrimSpace(data))
-		}
-
 		filePath, _ = cmd.Flags().GetString("file")
 		chunkSize, _ = cmd.Flags().GetInt("chunk_size")
 
@@ -95,6 +90,8 @@ func getSecretData(cmd *cobra.Command) (*models.StoreRequest, error) {
 		}
 
 		switch {
+		case data != "":
+			d = []byte(strings.TrimSpace(data))
 		case filePath != "":
 
 			reader, err = os.Open(filePath)
@@ -106,11 +103,6 @@ func getSecretData(cmd *cobra.Command) (*models.StoreRequest, error) {
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
 				reader = os.Stdin
-				d, err = io.ReadAll(reader)
-				if err != nil {
-					return nil, fmt.Errorf("ошибка чтения из stdin: %w", err)
-				}
-				reader = nil
 			} else {
 				fmt.Print("Введите бинарные данные (текст): ")
 				var input string
@@ -161,12 +153,52 @@ func getSecretData(cmd *cobra.Command) (*models.StoreRequest, error) {
 		cvv, _ := cmd.Flags().GetString("cvv")
 		bank, _ := cmd.Flags().GetString("bank")
 
+		if num == "" {
+			fmt.Print("Введите number: ")
+			_, err = fmt.Scanln(&num)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка чтения number: %w", err)
+			}
+		}
+
+		if hol == "" {
+			fmt.Print("Введите holder: ")
+			_, err = fmt.Scanln(&hol)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка чтения holder: %w", err)
+			}
+		}
+
+		if exp == "" {
+			fmt.Print("Введите expiry: ")
+			_, err = fmt.Scanln(&exp)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка чтения expiry: %w", err)
+			}
+		}
+
+		if cvv == "" {
+			fmt.Print("Введите cvv: ")
+			_, err = fmt.Scanln(&cvv)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка чтения cvv: %w", err)
+			}
+		}
+
+		if bank == "" {
+			fmt.Print("Введите bank: ")
+			_, err = fmt.Scanln(&bank)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка чтения bank: %w", err)
+			}
+		}
+
 		card := models.Card{
-			Number:     num,
-			Holder:     hol,
-			ExpiryDate: exp,
-			CVV:        cvv,
-			Bank:       bank,
+			Number:     strings.TrimSpace(num),
+			Holder:     strings.TrimSpace(hol),
+			ExpiryDate: strings.TrimSpace(exp),
+			CVV:        strings.TrimSpace(cvv),
+			Bank:       strings.TrimSpace(bank),
 		}
 
 		d, err = json.Marshal(card)
