@@ -4,9 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	DefaultRequestTimeout = 30 * time.Second
 )
 
 type (
@@ -21,15 +26,17 @@ type (
 		Dir  string `mapstructure:"dir"`
 	}
 	Config struct {
-		Server Server `mapstructure:"server"`
-		Log    Log    `mapstructure:"log"`
-		Secret Secret `mapstructure:"secret"`
+		Server         Server `mapstructure:"server"`
+		Log            Log    `mapstructure:"log"`
+		Secret         Secret `mapstructure:"secret"`
+		RequestTimeout time.Duration
+		App            string
 	}
 )
 
 // BindFlags регистрирует флаги. Вызывайте это в NewRootCmd
 func BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP("address", "a", "localhost:8080", "Адрес сервера")
+	cmd.Flags().StringP("address", "a", "http://localhost:8080", "Адрес сервера")
 	cmd.Flags().StringP("level", "", "info", "Уровень логирования")
 	cmd.Flags().StringP("storage-file", "f", "storage.txt", "Файл для хранения данных")
 	cmd.Flags().StringP("dir-file", "s", "./file", "Папка для хранения файлов")
@@ -74,6 +81,9 @@ func Load(cmd *cobra.Command) (*Config, error) {
 	if err = v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("десериализация: %w", err)
 	}
+
+	cfg.RequestTimeout = DefaultRequestTimeout
+	cfg.App = "GophKeeper"
 
 	return &cfg, nil
 }

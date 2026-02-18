@@ -9,4 +9,7 @@ var (
 	ErrNoFilePath           = errors.New("secret file path is empty")
 	ErrSecretAlreadyDeleted = errors.New("secret already deleted")
 	ErrNoReader             = errors.New("reader is nil")
+	ErrUserAlreadyExists    = errors.New("user already exists")
+	ErrInvalidCredentials   = errors.New("invalid credentials")
+	ErrUserNotFound         = errors.New("user not found")
 )

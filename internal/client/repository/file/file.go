@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/Evlushin/GophKeeper/internal/client/config"
 	"github.com/Evlushin/GophKeeper/internal/client/models"
-	"github.com/Evlushin/GophKeeper/internal/client/myerrors"
+	"github.com/Evlushin/GophKeeper/internal/myerrors"
 	"github.com/google/uuid"
 	"io"
 	"os"
@@ -221,7 +221,7 @@ func (st *Store) StoreSecret(ctx context.Context, req models.StoreRequest) error
 		if err != nil {
 			return fmt.Errorf("save file: %w", err)
 		}
-		req.SecretData.FileStore = file.FileStore
+		req.SecretData.FileStore = filepath.Base(file.FileStore)
 	}
 
 	req.SecretData.CreatedAt = time.Now()
@@ -265,7 +265,7 @@ func (st *Store) UpdateSecret(ctx context.Context, req models.UpdateRequest) err
 		if err != nil {
 			return fmt.Errorf("save file: %w", err)
 		}
-		req.SecretData.FileStore = file.FileStore
+		req.SecretData.FileStore = filepath.Base(file.FileStore)
 	}
 
 	req.SecretData.UpdatedAt = time.Now()

@@ -27,7 +27,8 @@ type Credentials struct {
 }
 
 type ListRequest struct {
-	Type string `json:"type"`
+	Type  string `json:"type"`
+	Token string `json:"token"`
 }
 
 type SecretData struct {
@@ -52,6 +53,7 @@ type StoreRequest struct {
 	SecretData
 	Reader    io.Reader `json:"-"`
 	ChunkSize int       `json:"-"`
+	Token     string    `json:"-"`
 }
 
 type StoreFileRequest struct {
@@ -66,18 +68,22 @@ type StoreFileResponse struct {
 
 type UpdateRequest struct {
 	StoreRequest
-	ID string `json:"id"`
+	ID    string `json:"id"`
+	Token string `json:"-"`
 }
 
 type ShowRequest struct {
-	ID string `json:"id"`
+	ID    string `json:"id"`
+	Token string `json:"-"`
 }
 
 type ShowResponse struct {
 	SecretData
 	Reader io.Reader `json:"-"`
+	Token  string    `json:"-"`
 }
 
 type DeleteRequest struct {
-	ID string `json:"id"`
+	ID    string `json:"id"`
+	Token string `json:"-"`
 }

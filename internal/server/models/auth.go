@@ -4,31 +4,12 @@ import (
 	"github.com/Evlushin/GophKeeper/internal/validator"
 )
 
-type LoginRequest struct {
+type AuthRequest struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 }
 
-func (r LoginRequest) Valid() validator.Problems {
-	problems := make(validator.Problems)
-
-	if r.Login == "" {
-		problems["login"] = "login is required"
-	}
-
-	if r.Password == "" {
-		problems["password"] = "password is required"
-	}
-
-	return problems
-}
-
-type RegisterRequest struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-}
-
-func (r RegisterRequest) Valid() validator.Problems {
+func (r AuthRequest) Valid() validator.Problems {
 	problems := make(validator.Problems)
 
 	if r.Login == "" {

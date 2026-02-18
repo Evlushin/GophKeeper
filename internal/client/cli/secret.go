@@ -7,6 +7,7 @@ import (
 	"github.com/Evlushin/GophKeeper/internal/client/config"
 	"github.com/Evlushin/GophKeeper/internal/client/models"
 	"github.com/Evlushin/GophKeeper/internal/client/service"
+	"github.com/zalando/go-keyring"
 	"golang.org/x/term"
 	"io"
 	"os"
@@ -35,17 +36,26 @@ func NewSecretCmd() *cobra.Command {
 	return cmd
 }
 
+func getToken(app string) (string, error) {
+	return keyring.Get(app, "auth-token")
+}
+
 func ListSecretCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Посмотреть список данных",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := service.FromContext(cmd.Context())
+			token, err := getToken(s.Config.App)
+			if err != nil {
+				return fmt.Errorf("get token: %w", err)
+			}
 
 			t, _ := cmd.Flags().GetString("type")
 
 			return s.Secret.List(cmd.Context(), models.ListRequest{
-				Type: t,
+				Type:  t,
+				Token: token,
 			})
 		},
 	}
@@ -229,6 +239,10 @@ func UpdateSecretCmd() *cobra.Command {
 		Short: "Обновить данные",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := service.FromContext(cmd.Context())
+			token, err := getToken(s.Config.App)
+			if err != nil {
+				return fmt.Errorf("get token: %w", err)
+			}
 
 			id, _ := cmd.Flags().GetString("id")
 
@@ -256,6 +270,7 @@ func UpdateSecretCmd() *cobra.Command {
 					},
 					Reader:    secret.Reader,
 					ChunkSize: secret.ChunkSize,
+					Token:     token,
 				},
 				ID: strings.TrimSpace(id),
 			})
@@ -295,11 +310,17 @@ func AddSecretCmd() *cobra.Command {
 		Short: "Добавить новые данные",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := service.FromContext(cmd.Context())
+			token, err := getToken(s.Config.App)
+			if err != nil {
+				return fmt.Errorf("get token: %w", err)
+			}
 
 			secret, err := getSecretData(cmd)
 			if err != nil {
 				return fmt.Errorf("ошибка получения секрета: %w", err)
 			}
+
+			secret.Token = token
 
 			return s.Secret.Store(cmd.Context(), *secret)
 		},
@@ -316,6 +337,10 @@ func ShowSecretCmd() *cobra.Command {
 		Short: "Просмотреть данные",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := service.FromContext(cmd.Context())
+			token, err := getToken(s.Config.App)
+			if err != nil {
+				return fmt.Errorf("get token: %w", err)
+			}
 
 			id, _ := cmd.Flags().GetString("id")
 
@@ -332,7 +357,8 @@ func ShowSecretCmd() *cobra.Command {
 			}
 
 			return s.Secret.Show(cmd.Context(), models.ShowRequest{
-				ID: strings.TrimSpace(id),
+				ID:    strings.TrimSpace(id),
+				Token: token,
 			})
 		},
 	}
@@ -348,6 +374,10 @@ func RemoveSecretCmd() *cobra.Command {
 		Short: "Удалить данные",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := service.FromContext(cmd.Context())
+			token, err := getToken(s.Config.App)
+			if err != nil {
+				return fmt.Errorf("get token: %w", err)
+			}
 
 			id, _ := cmd.Flags().GetString("id")
 
@@ -364,7 +394,8 @@ func RemoveSecretCmd() *cobra.Command {
 			}
 
 			return s.Secret.Delete(cmd.Context(), models.DeleteRequest{
-				ID: strings.TrimSpace(id),
+				ID:    strings.TrimSpace(id),
+				Token: token,
 			})
 		},
 	}
