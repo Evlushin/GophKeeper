@@ -21,18 +21,22 @@ func NewAuth(
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(cfg.AuthCookieName)
-			if err != nil {
-				logger.Debug("no auth cookie", zap.Error(err))
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
+			token := r.Header.Get("X-API-Token")
 
-			token := cookie.Value
 			if token == "" {
-				logger.Debug("empty auth cookie", zap.Error(err))
-				w.WriteHeader(http.StatusUnauthorized)
-				return
+				cookie, err := r.Cookie(cfg.AuthCookieName)
+				if err != nil {
+					logger.Debug("no auth cookie", zap.Error(err))
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+
+				token = cookie.Value
+				if token == "" {
+					logger.Debug("empty auth cookie", zap.Error(err))
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
 			}
 
 			userID, err := auth.ValidateToken(token)

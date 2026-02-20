@@ -8,11 +8,13 @@ const (
 	DefaultAuthCookieName     = "auth"
 	DefaultAuthSecretKey      = "secret"
 	DefaultAuthExpireDuration = 24 * time.Hour
+	DefaultDirFile            = "./file"
 )
 
 type Config struct {
 	ServerAddr    string
 	CompressLevel int
+	DirFile       string
 	AuthConfig
 }
 

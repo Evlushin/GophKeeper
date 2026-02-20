@@ -31,6 +31,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(
 		RegisterCmd(),
 		LoginCmd(),
+		LogoutCmd(),
 		NewSecretCmd(),
 	)
 

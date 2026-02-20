@@ -9,12 +9,18 @@ import (
 	"github.com/Evlushin/GophKeeper/internal/validator"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 )
 
-const defaultCtxTimeout = 60 * time.Second
+const (
+	copyBufferSize    = 32 * 1024 // 32KB
+	defaultCtxTimeout = 60 * time.Second
+)
 
 type Secret interface {
 	CountSecret(ctx context.Context, indexSecret models.IndexSecret) (int64, error)
@@ -173,7 +179,7 @@ func Update(logger *zap.Logger, secret Secret) http.HandlerFunc {
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -198,6 +204,144 @@ func Delete(logger *zap.Logger, secret Secret) http.HandlerFunc {
 			return
 		}
 
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func UploadFile(logger *zap.Logger, secret Secret) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := utils.GetCtxUserID(r.Context())
+		if err != nil {
+			writeUnauthorized(w, logger)
+			return
+		}
+
+		id := chi.URLParam(r, "id")
+
+		secretData, err := secret.GetSecret(r.Context(), models.ShowSecret{
+			ID:     id,
+			UserID: userID,
+		})
+		if err != nil {
+			writeInternalError(w, logger, "error show secret", err)
+			return
+		}
+
+		if secretData.FileStore == "" {
+			http.Error(w, "no file name", http.StatusBadRequest)
+			return
+		}
+
+		tmpFile := secretData.FileStore + ".tmp"
+
+		file, err := os.Create(tmpFile)
+		if err != nil {
+			http.Error(w, "create file", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+		_, err = copyWithContext(r.Context(), file, r.Body, copyBufferSize)
+		if err != nil {
+			file.Close()
+			os.Remove(tmpFile)
+			http.Error(w, "copy file", http.StatusInternalServerError)
+			return
+		}
+
+		if err = file.Close(); err != nil {
+			os.Remove(tmpFile)
+			http.Error(w, "close temp file", http.StatusInternalServerError)
+			return
+		}
+
+		if err = os.Rename(tmpFile, secretData.FileStore); err != nil {
+			os.Remove(tmpFile)
+			http.Error(w, "rename file", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// copyWithContext копирует данные с поддержкой контекста
+func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader, chunkSize int) (int64, error) {
+	if chunkSize <= 0 {
+		chunkSize = 32 * 1024 // 32KB по умолчанию
+	}
+
+	buf := make([]byte, chunkSize)
+	var total int64
+
+	for {
+		select {
+		case <-ctx.Done():
+			return total, ctx.Err()
+		default:
+		}
+
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				total += int64(nw)
+			}
+			if ew != nil {
+				return total, ew
+			}
+			if nr != nw {
+				return total, io.ErrShortWrite
+			}
+		}
+		if er != nil {
+			if er == io.EOF {
+				break
+			}
+			return total, er
+		}
+	}
+	return total, nil
+}
+
+func DownloadFile(logger *zap.Logger, secret Secret) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := utils.GetCtxUserID(r.Context())
+		if err != nil {
+			writeUnauthorized(w, logger)
+			return
+		}
+
+		id := chi.URLParam(r, "id")
+
+		secretData, err := secret.GetSecret(r.Context(), models.ShowSecret{
+			ID:     id,
+			UserID: userID,
+		})
+		if err != nil {
+			writeInternalError(w, logger, "error show secret", err)
+			return
+		}
+
+		if _, err = os.Stat(secretData.FileStore); os.IsNotExist(err) {
+			http.Error(w, "file not found", http.StatusNotFound)
+			return
+		}
+
+		file, err := os.Open(secretData.FileStore)
+		if err != nil {
+			writeInternalError(w, logger, "error opening file", err)
+			return
+		}
+		defer file.Close()
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(secretData.FileStore))
+
+		_, err = copyWithContext(r.Context(), w, file, copyBufferSize)
+		if err != nil {
+			logger.Error("error sending file", zap.Error(err))
+			return
+		}
+
 	}
 }

@@ -18,6 +18,7 @@ func GetConfig(args []string) (*Config, error) {
 		Handlers: &config.Config{
 			ServerAddr:    config.DefaultServerAddr,
 			CompressLevel: config.DefaultCompressLevel,
+			DirFile:       config.DefaultDirFile,
 			AuthConfig: config.AuthConfig{
 				AuthCookieName:     config.DefaultAuthCookieName,
 				AuthSecretKey:      config.DefaultAuthSecretKey,
@@ -44,11 +45,16 @@ func GetConfig(args []string) (*Config, error) {
 		cfg.Handlers.AuthSecretKey = secretKey
 	}
 
+	if dirFile := os.Getenv("DIR_FILE"); dirFile != "" {
+		cfg.Handlers.DirFile = dirFile
+	}
+
 	fs := flag.NewFlagSet("myFlagSet", flag.ContinueOnError)
 	fs.StringVar(&cfg.Handlers.ServerAddr, "a", cfg.Handlers.ServerAddr, "address of HTTP server")
 	fs.StringVar(&cfg.LogLevel, "l", cfg.LogLevel, "log level")
 	fs.StringVar(&cfg.DatabaseDsn, "d", cfg.DatabaseDsn, "connection string")
 	fs.StringVar(&cfg.Handlers.AuthSecretKey, "s", cfg.Handlers.AuthSecretKey, "secret key")
+	fs.StringVar(&cfg.Handlers.DirFile, "dir", cfg.Handlers.DirFile, "dir file")
 	err := fs.Parse(args)
 	if err != nil {
 		return &Config{}, fmt.Errorf("parse arguments for flagset: %w", err)

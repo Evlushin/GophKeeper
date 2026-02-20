@@ -73,6 +73,8 @@ func (a *Auth) handleAuthResponse(resp *http.Response) error {
 			return fmt.Errorf("set token: %w", err)
 		}
 
+		fmt.Println("Вход выполнен")
+
 		return nil
 
 	case http.StatusBadRequest:
@@ -92,7 +94,7 @@ func (a *Auth) handleAuthResponse(resp *http.Response) error {
 func (a *Auth) Login(ctx context.Context, request models.LoginRequest) error {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("marshal register request: %w", err)
+		return fmt.Errorf("marshal login request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(

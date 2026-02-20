@@ -20,15 +20,15 @@ type IndexSecret struct {
 
 type SecretData struct {
 	ID        string    `json:"id" gorm:"column:id;primaryKey"`
-	DataType  DataType  `json:"type"`
+	DataType  DataType  `json:"type" gorm:"column:type"`
 	Title     string    `json:"title"`
 	Metadata  string    `json:"metadata"`
 	Data      []byte    `json:"data"`
-	FilePath  string    `json:"filepath"`
+	FilePath  string    `json:"filepath" gorm:"column:filepath"`
 	FileStore string    `json:"file_store"`
 	CreatedAt time.Time `json:"created_at" gorm:"default:current_timestamp"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"default:current_timestamp"`
-	DeletedAt time.Time `json:"deleted_at"`
+	DeletedAt time.Time `json:"deleted_at" gorm:"default:null"`
 }
 
 type StoreSecret struct {

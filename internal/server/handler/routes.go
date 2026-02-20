@@ -26,17 +26,22 @@ func addRoutes(
 		mux.Route("/user", func(mux chi.Router) {
 			mux.Post("/register", handlerauth.HandleRegister(cfg, logger, auth))
 			mux.Post("/login", handlerauth.HandleLogin(cfg, logger, auth))
+		})
 
-			// auth protected group
-			mux.Group(func(mux chi.Router) {
-				mux.Use(mw.NewAuth(cfg, logger, auth))
+		// auth protected group
+		mux.Group(func(mux chi.Router) {
+			mux.Use(mw.NewAuth(cfg, logger, auth))
 
-				mux.Route("/secret", func(mux chi.Router) {
-					mux.Get("/", handlersecret.Index(logger, s))
-					mux.Post("/", handlersecret.Store(logger, s))
-					mux.Get("/{id}", handlersecret.Show(logger, s))
-					mux.Put("/", handlersecret.Update(logger, s))
-					mux.Delete("/{id}", handlersecret.Delete(logger, s))
+			mux.Route("/secret", func(mux chi.Router) {
+				mux.Get("/", handlersecret.Index(logger, s))
+				mux.Post("/", handlersecret.Store(logger, s))
+				mux.Get("/{id}", handlersecret.Show(logger, s))
+				mux.Put("/", handlersecret.Update(logger, s))
+				mux.Delete("/{id}", handlersecret.Delete(logger, s))
+
+				mux.Route("/file", func(mux chi.Router) {
+					mux.Post("/upload/{id}", handlersecret.UploadFile(logger, s))
+					mux.Get("/download/{id}", handlersecret.DownloadFile(logger, s))
 				})
 			})
 		})

@@ -7,6 +7,7 @@ import (
 	"github.com/Evlushin/GophKeeper/internal/client/models"
 	"github.com/Evlushin/GophKeeper/internal/client/service"
 	"github.com/spf13/cobra"
+	"github.com/zalando/go-keyring"
 	"golang.org/x/term"
 	"syscall"
 )
@@ -54,6 +55,28 @@ func LoginCmd() *cobra.Command {
 
 	cmd.Flags().StringP("login", "l", "", "Логин нового пользователя (можно ввести интерактивно)")
 	cmd.Flags().StringP("password", "p", "", "Пароль нового пользователя (рекомендуется интерактивный ввод)")
+
+	return cmd
+}
+
+func LogoutCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "logout",
+		Short: "Выход",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			s := service.FromContext(cmd.Context())
+			err := keyring.Delete(s.Config.App, "auth-token")
+			if err != nil {
+				return fmt.Errorf("logout: %w", err)
+			}
+
+			fmt.Println("Выход выполнен")
+
+			return nil
+		},
+	}
+
+	config.BindFlags(cmd)
 
 	return cmd
 }

@@ -33,8 +33,11 @@ func Serve(
 	router http.Handler,
 ) {
 	httpServer := &http.Server{
-		Addr:    cfg.ServerAddr,
-		Handler: router,
+		Addr:         cfg.ServerAddr,
+		Handler:      router,
+		ReadTimeout:  24 * time.Hour,
+		WriteTimeout: 24 * time.Hour,
+		IdleTimeout:  5 * time.Minute,
 	}
 	go func() {
 		logger.Info("starting server", zap.String("addr", cfg.ServerAddr))

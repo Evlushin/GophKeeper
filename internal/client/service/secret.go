@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,20 +9,24 @@ import (
 	"github.com/Evlushin/GophKeeper/internal/client/models"
 	"github.com/Evlushin/GophKeeper/internal/client/repository/file"
 	"io"
+	"net/http"
 	"os"
+	"path/filepath"
+	"time"
 )
 
 type Repository interface {
 	ListSecret(ctx context.Context, req models.ListRequest) ([]models.SaveData, error)
-	StoreSecret(ctx context.Context, req models.StoreRequest) error
+	StoreSecret(ctx context.Context, req models.StoreRequest) (*models.SaveData, error)
 	ShowSecret(ctx context.Context, req models.ShowRequest) (*models.ShowResponse, error)
-	UpdateSecret(ctx context.Context, req models.UpdateRequest) error
+	UpdateSecret(ctx context.Context, req models.UpdateRequest) (*models.SaveData, error)
 	DeleteSecret(ctx context.Context, req models.DeleteRequest) error
 }
 
 type Secret struct {
-	cfg   *config.Config
-	store Repository
+	cfg        *config.Config
+	store      Repository
+	httpClient *http.Client
 }
 
 func NewSecret(cfg *config.Config) (*Secret, error) {
@@ -33,13 +38,58 @@ func NewSecret(cfg *config.Config) (*Secret, error) {
 	return &Secret{
 		cfg:   cfg,
 		store: s,
+		httpClient: &http.Client{
+			Timeout: cfg.RequestTimeout,
+		},
 	}, nil
 }
 
 func (s *Secret) List(ctx context.Context, request models.ListRequest) error {
-	res, err := s.store.ListSecret(ctx, request)
+	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("get list: %v", err)
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		s.cfg.Server.Address+"/api/secret",
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("X-API-Token", request.Token)
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
+	var res []models.SaveData
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated:
+		if err = json.Unmarshal(body, &res); err != nil {
+			return fmt.Errorf("parse response: %w, body: %s", err, string(body))
+		}
+	default:
+		fmt.Printf("response status: %d, body: %s\n", resp.StatusCode, string(body))
+
+		res, err = s.store.ListSecret(ctx, request)
+		if err != nil {
+			return fmt.Errorf("get list: %v", err)
+		}
+
+		fmt.Println("Локальное хранилище")
 	}
 
 	fmt.Println("=== Список секретов ===")
@@ -62,20 +112,143 @@ func (s *Secret) List(ctx context.Context, request models.ListRequest) error {
 }
 
 func (s *Secret) Store(ctx context.Context, request models.StoreRequest) error {
-	err := s.store.StoreSecret(ctx, request)
+
+	sec, err := s.store.StoreSecret(ctx, request)
 	if err != nil {
 		return fmt.Errorf("store secret: %v", err)
 	}
 
-	fmt.Println("Секрет сохранен")
+	fmt.Println("Секрет сохранен в локальное хранилище")
+
+	jsonData, err := json.Marshal(sec)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		s.cfg.Server.Address+"/api/secret",
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("X-API-Token", request.Token)
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated:
+		if request.Reader != nil {
+			fmt.Println("Передача файла на сервер...")
+			localFilePath := filepath.Join(s.cfg.Secret.Dir, sec.FileStore)
+			fileReader, err := os.Open(localFilePath)
+			if err != nil {
+				return fmt.Errorf("ошибка открытия файла: %w", err)
+			}
+			defer fileReader.Close()
+			err = s.uploadLargeFile(ctx, request, fileReader)
+			if err != nil {
+				return fmt.Errorf("sent file: %v", err)
+			}
+		}
+		fmt.Println("Секрет сохранен на сервер")
+	default:
+		fmt.Printf("response status: %d, body: %s\n", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+func (s *Secret) uploadLargeFile(ctx context.Context, request models.StoreRequest, reader io.Reader) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 24*time.Hour)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/api/secret/file/upload/%s", s.cfg.Server.Address, request.ID),
+		reader,
+	)
+	if err != nil {
+		return fmt.Errorf("new request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("X-API-Token", request.Token)
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("загрузка файла не удалась, статус %d: %s", resp.StatusCode, string(body))
+	}
 
 	return nil
 }
 
 func (s *Secret) Show(ctx context.Context, request models.ShowRequest) error {
-	res, err := s.store.ShowSecret(ctx, request)
+	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("get secret: %v", err)
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/api/secret/%s", s.cfg.Server.Address, request.ID),
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("X-API-Token", request.Token)
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
+	var res *models.ShowResponse
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated:
+		if err = json.Unmarshal(body, &res); err != nil {
+			return fmt.Errorf("parse response: %w, body: %s", err, string(body))
+		}
+	default:
+		fmt.Printf("response status: %d, body: %s\n", resp.StatusCode, string(body))
+		res, err = s.store.ShowSecret(ctx, request)
+		if err != nil {
+			return fmt.Errorf("get secret: %v", err)
+		}
+
+		fmt.Println("Локальное хранилище")
 	}
 
 	fmt.Printf("ID: %s\n", request.ID)
@@ -97,11 +270,44 @@ func (s *Secret) Show(ctx context.Context, request models.ShowRequest) error {
 			fmt.Println(string(res.Data))
 		}
 
-		if res.Reader != nil {
-			_, err = io.Copy(os.Stdout, res.Reader)
+		if res.FileStore != "" {
+
+			ctx, cancel := context.WithTimeout(context.Background(), 24*time.Hour)
+			defer cancel()
+
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodGet,
+				fmt.Sprintf("%s/api/secret/file/download/%s", s.cfg.Server.Address, request.ID),
+				nil,
+			)
 			if err != nil {
-				return fmt.Errorf("copy to stdout: %v", err)
+				return fmt.Errorf("new request: %w", err)
 			}
+
+			req.Header.Set("X-API-Token", request.Token)
+
+			r, err := s.httpClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("send request: %w", err)
+			}
+			defer r.Body.Close()
+
+			if r.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(r.Body)
+				fmt.Printf("загрузка файла не удалась, статус %d: %s", resp.StatusCode, string(body))
+
+				_, err = io.Copy(os.Stdout, res.Reader)
+				if err != nil {
+					return fmt.Errorf("copy to stdout: %v", err)
+				}
+			} else {
+				_, err = io.Copy(os.Stdout, r.Body)
+				if err != nil {
+					return fmt.Errorf("copy response to stdout: %v", err)
+				}
+			}
+
 		}
 
 	case models.LoginPassword:
@@ -136,23 +342,110 @@ func (s *Secret) Show(ctx context.Context, request models.ShowRequest) error {
 }
 
 func (s *Secret) Update(ctx context.Context, request models.UpdateRequest) error {
-	err := s.store.UpdateSecret(ctx, request)
+	sec, err := s.store.UpdateSecret(ctx, request)
 	if err != nil {
 		return fmt.Errorf("update secret: %v", err)
 	}
 
-	fmt.Println("Секрет обновлен")
+	jsonData, err := json.Marshal(sec)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPut,
+		s.cfg.Server.Address+"/api/secret",
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("X-API-Token", request.Token)
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated:
+		if request.Reader != nil {
+			fmt.Println("Передача файла на сервер...")
+
+			localFilePath := filepath.Join(s.cfg.Secret.Dir, sec.FileStore)
+			fileReader, err := os.Open(localFilePath)
+			if err != nil {
+				return fmt.Errorf("ошибка открытия файла: %w", err)
+			}
+			defer fileReader.Close()
+
+			err = s.uploadLargeFile(ctx, request.StoreRequest, fileReader)
+			if err != nil {
+				return fmt.Errorf("sent file: %v", err)
+			}
+		}
+		fmt.Println("Секрет обновлен на сервере")
+	default:
+		fmt.Printf("response status: %d, body: %s\n", resp.StatusCode, string(body))
+	}
+
+	fmt.Println("Секрет обновлен в локальном хранилище")
 
 	return nil
 }
 
 func (s *Secret) Delete(ctx context.Context, request models.DeleteRequest) error {
-	err := s.store.DeleteSecret(ctx, request)
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodDelete,
+		fmt.Sprintf("%s/api/secret/%s", s.cfg.Server.Address, request.ID),
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("X-API-Token", request.Token)
+
+	resp, err := s.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated:
+		fmt.Println("Секрет удален на сервере")
+	default:
+		fmt.Printf("response status: %d, body: %s\n", resp.StatusCode, string(body))
+	}
+
+	err = s.store.DeleteSecret(ctx, request)
 	if err != nil {
 		return fmt.Errorf("delete secret: %v", err)
 	}
 
-	fmt.Println("Секрет удален")
+	fmt.Println("Секрет удален в локальном хранилище")
 
 	return nil
 }

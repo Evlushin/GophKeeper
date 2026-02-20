@@ -201,50 +201,9 @@ func (st *Store) ShowSecret(ctx context.Context, req models.ShowRequest) (*model
 }
 
 // StoreSecret сохраняет новый секрет.
-func (st *Store) StoreSecret(ctx context.Context, req models.StoreRequest) error {
-	id := uuid.New().String()
-	st.mux.Lock()
-	defer st.mux.Unlock()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
-	if req.Reader != nil {
-		file, err := st.StoreFile(ctx, models.StoreFileRequest{
-			ID:        id,
-			Reader:    req.Reader,
-			ChunkSize: req.ChunkSize,
-		})
-		if err != nil {
-			return fmt.Errorf("save file: %w", err)
-		}
-		req.SecretData.FileStore = filepath.Base(file.FileStore)
-	}
-
-	req.SecretData.CreatedAt = time.Now()
-	req.SecretData.UpdatedAt = time.Now()
-	req.ID = id
-
-	st.s[id] = models.SaveData{
-		SecretData: req.SecretData,
-		IsDelete:   false,
-	}
-
-	if err := st.Save(); err != nil {
-		return fmt.Errorf("save after update: %w", err)
-	}
-
-	return nil
-}
-
-// UpdateSecret обновить секрет.
-func (st *Store) UpdateSecret(ctx context.Context, req models.UpdateRequest) error {
-	_, err := st.ShowSecret(ctx, models.ShowRequest{ID: req.ID})
-	if err != nil {
-		return fmt.Errorf("get secret: %w", err)
+func (st *Store) StoreSecret(ctx context.Context, req models.StoreRequest) (*models.SaveData, error) {
+	if req.ID == "" {
+		req.ID = uuid.New().String()
 	}
 
 	st.mux.Lock()
@@ -252,7 +211,7 @@ func (st *Store) UpdateSecret(ctx context.Context, req models.UpdateRequest) err
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return nil, ctx.Err()
 	default:
 	}
 
@@ -263,22 +222,69 @@ func (st *Store) UpdateSecret(ctx context.Context, req models.UpdateRequest) err
 			ChunkSize: req.ChunkSize,
 		})
 		if err != nil {
-			return fmt.Errorf("save file: %w", err)
+			return nil, fmt.Errorf("save file: %w", err)
+		}
+		req.SecretData.FileStore = filepath.Base(file.FileStore)
+	}
+
+	req.SecretData.CreatedAt = time.Now()
+	req.SecretData.UpdatedAt = time.Now()
+
+	res := models.SaveData{
+		SecretData: req.SecretData,
+		IsDelete:   false,
+	}
+	st.s[req.ID] = res
+
+	if err := st.Save(); err != nil {
+		return nil, fmt.Errorf("save after update: %w", err)
+	}
+
+	return &res, nil
+}
+
+// UpdateSecret обновить секрет.
+func (st *Store) UpdateSecret(ctx context.Context, req models.UpdateRequest) (*models.SaveData, error) {
+	_, err := st.ShowSecret(ctx, models.ShowRequest{ID: req.ID})
+	if err != nil {
+		return nil, fmt.Errorf("get secret: %w", err)
+	}
+
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	if req.Reader != nil {
+		file, err := st.StoreFile(ctx, models.StoreFileRequest{
+			ID:        req.ID,
+			Reader:    req.Reader,
+			ChunkSize: req.ChunkSize,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("save file: %w", err)
 		}
 		req.SecretData.FileStore = filepath.Base(file.FileStore)
 	}
 
 	req.SecretData.UpdatedAt = time.Now()
-	st.s[req.ID] = models.SaveData{
+
+	sec := models.SaveData{
 		SecretData: req.SecretData,
 		IsDelete:   false,
 	}
 
+	st.s[req.ID] = sec
+
 	if err = st.Save(); err != nil {
-		return fmt.Errorf("save after update: %w", err)
+		return nil, fmt.Errorf("save after update: %w", err)
 	}
 
-	return nil
+	return &sec, nil
 }
 
 // generateFilePath создает уникальный путь для файла

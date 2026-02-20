@@ -92,9 +92,10 @@ func (st *Store) StoreSecret(ctx context.Context, storeSecret models.StoreSecret
 }
 
 func (st *Store) GetSecret(ctx context.Context, getSecret models.ShowSecret) (*models.SecretData, error) {
-	var secret models.SecretData
+	var secret *models.SecretData
 
 	result := st.conn.WithContext(ctx).
+		Table("secrets").
 		Where("id = ?", getSecret.ID).
 		Where("user_id = ?", getSecret.UserID).
 		Where("deleted_at IS NULL").
@@ -107,13 +108,13 @@ func (st *Store) GetSecret(ctx context.Context, getSecret models.ShowSecret) (*m
 		return nil, fmt.Errorf("failed to get order: %w", result.Error)
 	}
 
-	return &secret, nil
+	return secret, nil
 }
 
 func (st *Store) UpdateSecret(ctx context.Context, updateSecret models.UpdateSecret) error {
 	err := st.conn.
 		WithContext(ctx).
-		Table("withdrawals").
+		Table("secrets").
 		Where("id = ? AND deleted_at IS NULL", updateSecret.ID).
 		Where("user_id = ?", updateSecret.UserID).
 		Updates(&updateSecret).
@@ -129,7 +130,7 @@ func (st *Store) UpdateSecret(ctx context.Context, updateSecret models.UpdateSec
 func (st *Store) DeleteSecret(ctx context.Context, deleteSecret models.DeleteSecret) error {
 	result := st.conn.
 		WithContext(ctx).
-		Table("withdrawals").
+		Table("secrets").
 		Where("id = ? AND user_id = ? AND deleted_at IS NULL", deleteSecret.ID, deleteSecret.UserID).
 		Update("deleted_at", time.Now())
 

@@ -28,7 +28,7 @@ type Credentials struct {
 
 type ListRequest struct {
 	Type  string `json:"type"`
-	Token string `json:"token"`
+	Token string `json:"-"`
 }
 
 type SecretData struct {

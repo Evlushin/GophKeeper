@@ -7,6 +7,7 @@ import (
 	"github.com/Evlushin/GophKeeper/internal/client/config"
 	"github.com/Evlushin/GophKeeper/internal/client/models"
 	"github.com/Evlushin/GophKeeper/internal/client/service"
+	"github.com/google/uuid"
 	"github.com/zalando/go-keyring"
 	"golang.org/x/term"
 	"io"
@@ -270,9 +271,9 @@ func UpdateSecretCmd() *cobra.Command {
 					},
 					Reader:    secret.Reader,
 					ChunkSize: secret.ChunkSize,
-					Token:     token,
 				},
-				ID: strings.TrimSpace(id),
+				Token: token,
+				ID:    strings.TrimSpace(id),
 			})
 		},
 	}
@@ -321,6 +322,7 @@ func AddSecretCmd() *cobra.Command {
 			}
 
 			secret.Token = token
+			secret.ID = uuid.New().String()
 
 			return s.Secret.Store(cmd.Context(), *secret)
 		},
