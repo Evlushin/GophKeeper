@@ -17,6 +17,7 @@ const (
 type (
 	Server struct {
 		Address string `mapstructure:"address"`
+		Cert    string `mapstructure:"cert"`
 	}
 	Log struct {
 		Level string `mapstructure:"level"`
@@ -36,10 +37,11 @@ type (
 
 // BindFlags регистрирует флаги. Вызывайте это в NewRootCmd
 func BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP("address", "a", "http://localhost:8080", "Адрес сервера")
+	cmd.Flags().StringP("address", "a", "https://localhost:8080", "Адрес сервера")
 	cmd.Flags().StringP("level", "", "info", "Уровень логирования")
 	cmd.Flags().StringP("storage-file", "f", "storage.txt", "Файл для хранения данных")
 	cmd.Flags().StringP("dir-file", "s", "./file", "Папка для хранения файлов")
+	cmd.Flags().StringP("cert", "c", "../../cert/cert.pem", "Публичный сертификат")
 }
 
 // Load инициализирует Viper и собирает Config
@@ -65,6 +67,10 @@ func Load(cmd *cobra.Command) (*Config, error) {
 	err = v.BindPFlag("secret.dir", cmd.Flags().Lookup("dir-file"))
 	if err != nil {
 		return nil, fmt.Errorf("привязка secret.dir: %v", err)
+	}
+	err = v.BindPFlag("server.cert", cmd.Flags().Lookup("cert"))
+	if err != nil {
+		return nil, fmt.Errorf("привязка secret.cert: %v", err)
 	}
 
 	v.SetConfigName("config")

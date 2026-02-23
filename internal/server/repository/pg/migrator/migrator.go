@@ -3,6 +3,7 @@ package migrator
 import (
 	"errors"
 	"fmt"
+
 	"gorm.io/gorm"
 
 	"github.com/golang-migrate/migrate/v4"

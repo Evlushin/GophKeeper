@@ -29,18 +29,16 @@ type Secret struct {
 	httpClient *http.Client
 }
 
-func NewSecret(cfg *config.Config) (*Secret, error) {
+func NewSecret(cfg *config.Config, cl *http.Client) (*Secret, error) {
 	s, err := file.NewStore(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("new store: %v", err)
 	}
 
 	return &Secret{
-		cfg:   cfg,
-		store: s,
-		httpClient: &http.Client{
-			Timeout: cfg.RequestTimeout,
-		},
+		cfg:        cfg,
+		store:      s,
+		httpClient: cl,
 	}, nil
 }
 

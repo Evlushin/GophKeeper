@@ -1,0 +1,85 @@
+# .golangci.yml
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs-use-default: true
+  skip-files:
+    - ".*\\.pb\\.go$"
+
+output:
+  print-issued-lines: true
+  print-linter-name: true
+
+# ✅ LINTERS: только доступные в v2.x
+linters:
+  default: none
+  enable:
+    # === Базовые анализаторы ===
+    - staticcheck    # включает проверки gosimple + мощная статика
+
+    # === Безопасность (критично для crypto!) ===
+    - gosec
+    - errcheck
+    - errorlint
+    - govet
+
+    # === Качество кода ===
+    - revive         # замена golint + stylecheck
+    - unparam
+    - unused
+
+    # === HTTP/веб-серверы ===
+    - bodyclose
+    - contextcheck
+    - noctx
+
+# ✅ FORMATTERS: отдельная секция
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+formatters-settings:
+  goimports:
+    local-prefixes: github.com/Evlushin/GophKeeper
+
+linters-settings:
+  gosec:
+    excludes:
+      - G115  # integer overflow — часто ложные срабатывания
+
+  revive:
+    # Конфигурация правил revive (замена stylecheck)
+    rules:
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+      - name: var-naming
+        arguments:
+          - ["ID", "API", "HTTP", "URL", "JSON", "SQL", "JWT"]
+      - name: line-length-limit
+        arguments: [120]
+      - name: unhandled-error
+        arguments: ["fmt.Printf", "fmt.Println"]  # разрешить игнорировать ошибки Print*
+
+  godot:
+    scope: declarations
+    capital: true
+    period: true
+
+issues:
+  uniq-by-line: true
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Исключить строгие проверки для тестов
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - unparam
+    # Исключить generated-файлы
+    - path: ".*\\.pb\\.go$"
+      linters: [all]

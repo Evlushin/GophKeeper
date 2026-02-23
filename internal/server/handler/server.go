@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -32,6 +33,9 @@ func Serve(
 	cfg *config.Config,
 	router http.Handler,
 ) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	httpServer := &http.Server{
 		Addr:         cfg.ServerAddr,
 		Handler:      router,
@@ -41,8 +45,18 @@ func Serve(
 	}
 	go func() {
 		logger.Info("starting server", zap.String("addr", cfg.ServerAddr))
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("error starting server", zap.Error(err))
+
+		if !certFilesExist(cfg.TLSCertFile, cfg.TLSKeyFile) {
+			logger.Error("no certificates")
+			cancel()
+			return
+		}
+
+		// Запуск HTTPS-сервера
+		err := httpServer.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("error serving HTTPS", zap.Error(err))
+			cancel()
 		}
 	}()
 	var wg sync.WaitGroup
@@ -59,4 +73,10 @@ func Serve(
 		logger.Info("close server", zap.String("addr", cfg.ServerAddr))
 	}()
 	wg.Wait()
+}
+
+func certFilesExist(certFile, keyFile string) bool {
+	_, errCert := os.Stat(certFile)
+	_, errKey := os.Stat(keyFile)
+	return errCert == nil && errKey == nil
 }

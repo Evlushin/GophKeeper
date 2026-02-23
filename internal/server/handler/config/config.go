@@ -9,12 +9,16 @@ const (
 	DefaultAuthSecretKey      = "secret"
 	DefaultAuthExpireDuration = 24 * time.Hour
 	DefaultDirFile            = "./file"
+	DefaultTLSCertFile        = "./cert/cert.pem"
+	DefaultTLSKeyFile         = "./cert/key.pem"
 )
 
 type Config struct {
 	ServerAddr    string
 	CompressLevel int
 	DirFile       string
+	TLSCertFile   string
+	TLSKeyFile    string
 	AuthConfig
 }
 

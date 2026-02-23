@@ -17,12 +17,10 @@ type Auth struct {
 	httpClient *http.Client
 }
 
-func NewAuth(cfg *config.Config) *Auth {
+func NewAuth(cfg *config.Config, cl *http.Client) *Auth {
 	return &Auth{
-		cfg: cfg,
-		httpClient: &http.Client{
-			Timeout: cfg.RequestTimeout,
-		},
+		cfg:        cfg,
+		httpClient: cl,
 	}
 }
 

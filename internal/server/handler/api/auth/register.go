@@ -18,6 +18,32 @@ type UserRegisterer interface {
 	Register(ctx context.Context, login, password string) (*models.User, string, error)
 }
 
+// HandleRegister handles the HTTP request for new user registration.
+// Endpoint: POST /api/user/register
+// Request Body: JSON encoded models.AuthRequest
+//
+//	{
+//	  "login": "string, required, unique, valid email format",
+//	  "password": "string, required, min 8 characters with complexity"
+//	}
+//
+// Behavior:
+//   - Validates request JSON structure and field constraints
+//   - Checks for existing user with the same login (unique constraint)
+//   - Hashes password using bcrypt before storage
+//   - Generates JWT token for immediate authentication after registration
+//   - Sets HTTP-only secure cookie with the token (if cfg.UseCookieAuth)
+//
+// Returns:
+//   - HTTP 200 OK with JSON models.AuthResponse {UserID, Login, Token}
+//   - HTTP 400 Bad Request on JSON decode error or validation failure
+//   - HTTP 409 Conflict if user with given login already exists
+//   - HTTP 500 Internal Server Error on database or hashing failure
+//
+// Security:
+//   - Passwords are hashed with bcrypt (cost factor from config) before storage
+//   - Registration rate limiting recommended at middleware level
+//   - Consider adding email verification flow for production use
 func HandleRegister(cfg *config.Config, l *zap.Logger, reg UserRegisterer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, err := codec.Decode[models.AuthRequest](r)

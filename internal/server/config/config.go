@@ -3,8 +3,9 @@ package config
 import (
 	"flag"
 	"fmt"
-	"github.com/Evlushin/GophKeeper/internal/server/handler/config"
 	"os"
+
+	"github.com/Evlushin/GophKeeper/internal/server/handler/config"
 )
 
 type Config struct {
@@ -19,6 +20,8 @@ func GetConfig(args []string) (*Config, error) {
 			ServerAddr:    config.DefaultServerAddr,
 			CompressLevel: config.DefaultCompressLevel,
 			DirFile:       config.DefaultDirFile,
+			TLSCertFile:   config.DefaultTLSCertFile,
+			TLSKeyFile:    config.DefaultTLSKeyFile,
 			AuthConfig: config.AuthConfig{
 				AuthCookieName:     config.DefaultAuthCookieName,
 				AuthSecretKey:      config.DefaultAuthSecretKey,

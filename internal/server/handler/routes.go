@@ -34,14 +34,14 @@ func addRoutes(
 
 			mux.Route("/secret", func(mux chi.Router) {
 				mux.Get("/", handlersecret.Index(logger, s))
-				mux.Post("/", handlersecret.Store(logger, s))
-				mux.Get("/{id}", handlersecret.Show(logger, s))
-				mux.Put("/", handlersecret.Update(logger, s))
+				mux.Post("/", handlersecret.Store(cfg, logger, s))
+				mux.Get("/{id}", handlersecret.Show(cfg, logger, s))
+				mux.Put("/", handlersecret.Update(cfg, logger, s))
 				mux.Delete("/{id}", handlersecret.Delete(logger, s))
 
 				mux.Route("/file", func(mux chi.Router) {
-					mux.Post("/upload/{id}", handlersecret.UploadFile(logger, s))
-					mux.Get("/download/{id}", handlersecret.DownloadFile(logger, s))
+					mux.Post("/upload/{id}", handlersecret.UploadFile(cfg, logger, s))
+					mux.Get("/download/{id}", handlersecret.DownloadFile(cfg, logger, s))
 				})
 			})
 		})

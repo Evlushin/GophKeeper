@@ -18,7 +18,31 @@ type UserLoginer interface {
 	Login(ctx context.Context, login string, password string) (*models.User, string, error)
 }
 
-//nolint:dupl // register and login are different business processes with possible same structure
+// HandleLogin handles the HTTP request for user authentication.
+// Endpoint: POST /api/user/login
+// Request Body: JSON encoded models.AuthRequest
+//
+//	{
+//	  "login": "string, required, email or username",
+//	  "password": "string, required, min 8 characters"
+//	}
+//
+// Behavior:
+//   - Validates request JSON structure and field constraints
+//   - Authenticates user credentials against the database
+//   - Generates JWT token on successful authentication
+//   - Sets HTTP-only secure cookie with the token (if cfg.UseCookieAuth)
+//
+// Returns:
+//   - HTTP 200 OK with JSON models.AuthResponse {UserID, Login, Token}
+//   - HTTP 400 Bad Request on JSON decode error or validation failure
+//   - HTTP 401 Unauthorized on invalid login/password combination
+//   - HTTP 500 Internal Server Error on database or token generation failure
+//
+// Security:
+//   - Passwords are never logged or returned in responses
+//   - Uses constant-time comparison for credential validation
+//   - Token cookie configured with HttpOnly, Secure, SameSite flags
 func HandleLogin(cfg *config.Config, l *zap.Logger, auth UserLoginer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		creds, err := codec.Decode[models.AuthRequest](r)

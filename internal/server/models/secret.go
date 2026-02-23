@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/Evlushin/GophKeeper/internal/validator"
 	"time"
+
+	"github.com/Evlushin/GophKeeper/internal/validator"
 )
 
 type DataType string
