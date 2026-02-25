@@ -37,11 +37,12 @@ func Serve(
 	defer cancel()
 
 	httpServer := &http.Server{
-		Addr:         cfg.ServerAddr,
-		Handler:      router,
-		ReadTimeout:  24 * time.Hour,
-		WriteTimeout: 24 * time.Hour,
-		IdleTimeout:  5 * time.Minute,
+		Addr:              cfg.ServerAddr,
+		Handler:           router,
+		ReadTimeout:       10 * time.Minute,
+		WriteTimeout:      10 * time.Minute,
+		IdleTimeout:       5 * time.Minute,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {

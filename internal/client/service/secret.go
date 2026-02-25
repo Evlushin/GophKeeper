@@ -172,7 +172,7 @@ func (s *Secret) Store(ctx context.Context, request models.StoreRequest) error {
 }
 
 func (s *Secret) uploadLargeFile(ctx context.Context, request models.StoreRequest, reader io.Reader) error {
-	ctx, cancel := context.WithTimeout(ctx, 24*time.Hour)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(
@@ -270,7 +270,7 @@ func (s *Secret) Show(ctx context.Context, request models.ShowRequest) error {
 
 		if res.FileStore != "" {
 
-			ctx, cancel := context.WithTimeout(ctx, 24*time.Hour)
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(
