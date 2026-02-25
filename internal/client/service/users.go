@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/Evlushin/GophKeeper/internal/client/config"
 	"github.com/Evlushin/GophKeeper/internal/client/models"
-	"github.com/zalando/go-keyring"
+	"github.com/Evlushin/GophKeeper/internal/client/service/mocks"
 	"io"
 	"net/http"
 )
@@ -15,12 +15,23 @@ import (
 type Auth struct {
 	cfg        *config.Config
 	httpClient *http.Client
+	keyring    mocks.KeyringInterface
 }
 
 func NewAuth(cfg *config.Config, cl *http.Client) *Auth {
 	return &Auth{
 		cfg:        cfg,
 		httpClient: cl,
+		keyring:    mocks.DefaultKeyring{},
+	}
+}
+
+// NewAuthWithKeyring — для тестов с моком
+func NewAuthWithKeyring(cfg *config.Config, cl *http.Client, kr mocks.KeyringInterface) *Auth {
+	return &Auth{
+		cfg:        cfg,
+		httpClient: cl,
+		keyring:    kr,
 	}
 }
 
@@ -66,7 +77,7 @@ func (a *Auth) handleAuthResponse(resp *http.Response) error {
 			return fmt.Errorf("parse response: %w, body: %s", err, string(body))
 		}
 
-		err = keyring.Set(a.cfg.App, "auth-token", authResp.Token)
+		err = a.keyring.Set(a.cfg.App, "auth-token", authResp.Token)
 		if err != nil {
 			return fmt.Errorf("set token: %w", err)
 		}

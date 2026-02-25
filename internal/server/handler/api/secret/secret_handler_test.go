@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	testAuthSecretKey = "0123456789abcdef0123456789abcdef" // 32 bytes for AES-256
+	testSecretKey     = "0123456789abcdef0123456789abcdef" // 32 bytes for AES-256
+	testAuthSecretKey = "1123456789abcdef0123456789abcdef"
 	testUserID        = models.UserID(123)
 	testSecretID      = "secret-abc-123"
 )
@@ -45,6 +46,7 @@ func newTestConfig(dirFile string) *config.Config {
 		DirFile:       dirFile,
 		TLSCertFile:   config.DefaultTLSCertFile,
 		TLSKeyFile:    config.DefaultTLSKeyFile,
+		SecretKey:     testSecretKey,
 		AuthConfig: config.AuthConfig{
 			AuthCookieName:     config.DefaultAuthCookieName,
 			AuthSecretKey:      testAuthSecretKey,
@@ -256,7 +258,7 @@ func TestShow_Handler(t *testing.T) {
 				plainData := []byte(`{"login":"user","password":"secret"}`)
 				encryptedHex, err := mycrypto.EncryptTextToHex(
 					plainData,
-					[]byte(cfg.AuthConfig.AuthSecretKey),
+					[]byte(cfg.SecretKey),
 					[]byte(testSecretID),
 				)
 				require.NoError(t, err, "Encryption should succeed")
@@ -773,8 +775,8 @@ func TestStore_Debug(t *testing.T) {
 	logger := zap.NewNop()
 	cfg := newTestConfig(t.TempDir())
 
-	t.Logf("🔑 AuthSecretKey: '%s' (len=%d)", cfg.AuthConfig.AuthSecretKey, len(cfg.AuthConfig.AuthSecretKey))
-	require.Equal(t, 32, len(cfg.AuthConfig.AuthSecretKey))
+	t.Logf("🔑 SecretKey: '%s' (len=%d)", cfg.SecretKey, len(cfg.SecretKey))
+	require.Equal(t, 32, len(cfg.SecretKey))
 
 	mockSecret := mocks.NewMockSecret(t)
 	mockSecret.EXPECT().StoreSecret(mock.Anything, mock.Anything).Return(nil)

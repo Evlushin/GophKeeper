@@ -10,7 +10,6 @@ import (
 	utils "github.com/Evlushin/GophKeeper/internal/server/utils/auth"
 	"github.com/Evlushin/GophKeeper/internal/validator"
 	"go.uber.org/zap"
-	"log"
 	"net/http"
 )
 
@@ -60,7 +59,7 @@ func HandleRegister(cfg *config.Config, l *zap.Logger, reg UserRegisterer) http.
 			return
 		}
 
-		user, token, err := reg.Register(context.Background(), creds.Login, creds.Password)
+		user, token, err := reg.Register(r.Context(), creds.Login, creds.Password)
 		if err != nil {
 			if errors.Is(err, myerrors.ErrUserAlreadyExists) {
 				w.WriteHeader(http.StatusConflict)
@@ -79,7 +78,7 @@ func HandleRegister(cfg *config.Config, l *zap.Logger, reg UserRegisterer) http.
 			Login:  user.Login,
 			Token:  token,
 		}); err != nil {
-			log.Printf("Error encoding response: %v", err)
+			l.Error("encoding response", zap.Error(err))
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}

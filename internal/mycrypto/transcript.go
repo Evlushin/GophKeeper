@@ -7,7 +7,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/Evlushin/GophKeeper/internal/myerrors"
 	"io"
+	"math"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -63,8 +65,16 @@ func (dr *DecryptedReader) Read(p []byte) (int, error) {
 		return n, nil
 	}
 
+	// Проверка переполнения до инкремента
+	if dr.chunkCounter == math.MaxUint64 {
+		return 0, myerrors.ErrNonceCounterOverflow
+	}
+
 	n, err := dr.reader.Read(dr.buf)
 	if n == 0 {
+		if err == io.EOF {
+			return 0, io.EOF
+		}
 		return 0, err
 	}
 
@@ -79,11 +89,9 @@ func (dr *DecryptedReader) Read(p []byte) (int, error) {
 	}
 
 	copied := copy(p, plaintext)
-
 	if copied < len(plaintext) {
 		dr.pending = plaintext[copied:]
 	}
-
 	return copied, nil
 }
 

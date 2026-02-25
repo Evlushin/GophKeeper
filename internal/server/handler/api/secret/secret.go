@@ -133,7 +133,7 @@ func Store(cfg *config.Config, logger *zap.Logger, secret Secret) http.HandlerFu
 		storeSecret.UserID = userID
 
 		if len(storeSecret.Data) > 0 {
-			storeSecret.Data, err = mycrypto.EncryptTextToHex(storeSecret.Data, []byte(cfg.AuthSecretKey), []byte(storeSecret.ID))
+			storeSecret.Data, err = mycrypto.EncryptTextToHex(storeSecret.Data, []byte(cfg.SecretKey), []byte(storeSecret.ID))
 			if err != nil {
 				writeInternalError(w, logger, "encrypt secret data", err)
 				return
@@ -194,7 +194,7 @@ func Show(cfg *config.Config, logger *zap.Logger, secret Secret) http.HandlerFun
 		}
 
 		if len(secretData.Data) > 0 {
-			secretData.Data, err = mycrypto.DecryptTextFromHex(string(secretData.Data), []byte(cfg.AuthSecretKey), []byte(secretData.ID))
+			secretData.Data, err = mycrypto.DecryptTextFromHex(string(secretData.Data), []byte(cfg.SecretKey), []byte(secretData.ID))
 			if err != nil {
 				writeInternalError(w, logger, "decrypting secret data", err)
 				return
@@ -239,7 +239,7 @@ func Update(cfg *config.Config, logger *zap.Logger, secret Secret) http.HandlerF
 		updateSecret.UserID = userID
 
 		if len(updateSecret.Data) > 0 {
-			updateSecret.Data, err = mycrypto.EncryptTextToHex(updateSecret.Data, []byte(cfg.AuthSecretKey), []byte(updateSecret.ID))
+			updateSecret.Data, err = mycrypto.EncryptTextToHex(updateSecret.Data, []byte(cfg.SecretKey), []byte(updateSecret.ID))
 			if err != nil {
 				writeInternalError(w, logger, "encrypt secret data", err)
 				return
@@ -331,7 +331,7 @@ func UploadFile(cfg *config.Config, logger *zap.Logger, secret Secret) http.Hand
 
 		fileName := filepath.Join(cfg.DirFile, secretData.FileStore)
 
-		key := []byte(cfg.AuthSecretKey)
+		key := []byte(cfg.SecretKey)
 		salt, err := mycrypto.ParseHexSalt(secretData.FileStore)
 		if err != nil {
 			http.Error(w, "invalid salt", http.StatusBadRequest)
@@ -482,8 +482,8 @@ func DownloadFile(cfg *config.Config, logger *zap.Logger, secret Secret) http.Ha
 			return
 		}
 
-		key := []byte(cfg.AuthSecretKey)
-		if key == nil {
+		key := []byte(cfg.SecretKey)
+		if len(key) < 1 {
 			writeInternalError(w, logger, "encryption key not found", nil)
 			return
 		}

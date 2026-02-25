@@ -6,7 +6,6 @@ const (
 	DefaultServerAddr         = "localhost:8080"
 	DefaultCompressLevel      = 5
 	DefaultAuthCookieName     = "auth"
-	DefaultAuthSecretKey      = "secret"
 	DefaultAuthExpireDuration = 24 * time.Hour
 	DefaultDirFile            = "./file"
 	DefaultTLSCertFile        = "./cert/cert.pem"
@@ -19,6 +18,7 @@ type Config struct {
 	DirFile       string
 	TLSCertFile   string
 	TLSKeyFile    string
+	SecretKey     string `env:"SECRET_KEY"`
 	AuthConfig
 }
 

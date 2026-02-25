@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"github.com/Evlushin/GophKeeper/internal/myerrors"
 	"os"
 
 	"github.com/Evlushin/GophKeeper/internal/server/handler/config"
@@ -22,10 +23,11 @@ func GetConfig(args []string) (*Config, error) {
 			DirFile:       config.DefaultDirFile,
 			TLSCertFile:   config.DefaultTLSCertFile,
 			TLSKeyFile:    config.DefaultTLSKeyFile,
+			SecretKey:     "secret2",
 			AuthConfig: config.AuthConfig{
 				AuthCookieName:     config.DefaultAuthCookieName,
-				AuthSecretKey:      config.DefaultAuthSecretKey,
 				AuthExpireDuration: config.DefaultAuthExpireDuration,
+				AuthSecretKey:      "secret",
 			},
 		},
 		DatabaseDsn: "host=127.127.126.41 port=5432 dbname=shorturl user=shorturl password=shorturl connect_timeout=10 sslmode=prefer",
@@ -48,6 +50,10 @@ func GetConfig(args []string) (*Config, error) {
 		cfg.Handlers.AuthSecretKey = secretKey
 	}
 
+	if secretKeyData := os.Getenv("SECRET_KEY"); secretKeyData != "" {
+		cfg.Handlers.SecretKey = secretKeyData
+	}
+
 	if dirFile := os.Getenv("DIR_FILE"); dirFile != "" {
 		cfg.Handlers.DirFile = dirFile
 	}
@@ -56,11 +62,24 @@ func GetConfig(args []string) (*Config, error) {
 	fs.StringVar(&cfg.Handlers.ServerAddr, "a", cfg.Handlers.ServerAddr, "address of HTTP server")
 	fs.StringVar(&cfg.LogLevel, "l", cfg.LogLevel, "log level")
 	fs.StringVar(&cfg.DatabaseDsn, "d", cfg.DatabaseDsn, "connection string")
-	fs.StringVar(&cfg.Handlers.AuthSecretKey, "s", cfg.Handlers.AuthSecretKey, "secret key")
+	fs.StringVar(&cfg.Handlers.AuthSecretKey, "s", cfg.Handlers.AuthSecretKey, "secret key auth")
+	fs.StringVar(&cfg.Handlers.SecretKey, "sd", cfg.Handlers.SecretKey, "secret key data")
 	fs.StringVar(&cfg.Handlers.DirFile, "dir", cfg.Handlers.DirFile, "dir file")
 	err := fs.Parse(args)
 	if err != nil {
 		return &Config{}, fmt.Errorf("parse arguments for flagset: %w", err)
+	}
+
+	if cfg.DatabaseDsn == "" {
+		return &Config{}, myerrors.ErrEnterConnectionString
+	}
+
+	if cfg.Handlers.SecretKey == "" {
+		return &Config{}, myerrors.ErrEnterSecretKey
+	}
+
+	if cfg.Handlers.AuthSecretKey == "" {
+		return &Config{}, myerrors.ErrEnterAuthSecretKey
 	}
 
 	return &cfg, nil

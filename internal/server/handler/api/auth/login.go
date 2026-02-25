@@ -10,7 +10,6 @@ import (
 	utils "github.com/Evlushin/GophKeeper/internal/server/utils/auth"
 	"github.com/Evlushin/GophKeeper/internal/validator"
 	"go.uber.org/zap"
-	"log"
 	"net/http"
 )
 
@@ -59,7 +58,7 @@ func HandleLogin(cfg *config.Config, l *zap.Logger, auth UserLoginer) http.Handl
 			return
 		}
 
-		user, token, err := auth.Login(context.Background(), creds.Login, creds.Password)
+		user, token, err := auth.Login(r.Context(), creds.Login, creds.Password)
 		if err != nil {
 			if errors.Is(err, myerrors.ErrInvalidCredentials) {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -78,7 +77,7 @@ func HandleLogin(cfg *config.Config, l *zap.Logger, auth UserLoginer) http.Handl
 			Login:  user.Login,
 			Token:  token,
 		}); err != nil {
-			log.Printf("Error encoding response: %v", err)
+			l.Error("encoding response", zap.Error(err))
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}

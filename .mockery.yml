@@ -15,3 +15,9 @@ packages:
   github.com/Evlushin/GophKeeper/internal/server/handler/api/secret:
     interfaces:
       Secret:
+  github.com/Evlushin/GophKeeper/internal/client/service:
+    interfaces:
+      Repository:
+  github.com/Evlushin/GophKeeper/internal/server/service/secret:
+    interfaces:
+      Repository:

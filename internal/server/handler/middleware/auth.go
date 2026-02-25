@@ -46,7 +46,7 @@ func NewAuth(
 				return
 			}
 
-			user, err := auth.ValidateUser(context.Background(), userID)
+			user, err := auth.ValidateUser(r.Context(), userID)
 			if err != nil {
 				logger.Debug("invalid user", zap.Error(err))
 				w.WriteHeader(http.StatusUnauthorized)

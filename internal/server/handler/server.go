@@ -43,13 +43,17 @@ func Serve(
 		WriteTimeout: 24 * time.Hour,
 		IdleTimeout:  5 * time.Minute,
 	}
+
 	go func() {
 		logger.Info("starting server", zap.String("addr", cfg.ServerAddr))
 
 		if !certFilesExist(cfg.TLSCertFile, cfg.TLSKeyFile) {
-			logger.Error("no certificates")
-			cancel()
-			return
+			if err := GenerateSelfSignedCert(cfg.TLSCertFile, cfg.TLSKeyFile); err != nil {
+				logger.Error("generate certificates", zap.Error(err))
+				cancel()
+				return
+			}
+			logger.Debug("generate certificates")
 		}
 
 		// Запуск HTTPS-сервера
@@ -78,5 +82,5 @@ func Serve(
 func certFilesExist(certFile, keyFile string) bool {
 	_, errCert := os.Stat(certFile)
 	_, errKey := os.Stat(keyFile)
-	return errCert == nil && errKey == nil
+	return errCert == nil || errKey == nil
 }
