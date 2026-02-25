@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Evlushin/GophKeeper/internal/mycrypto"
 	"github.com/Evlushin/GophKeeper/internal/server/codec"
@@ -500,7 +501,7 @@ func DownloadFile(cfg *config.Config, logger *zap.Logger, secret Secret) http.Ha
 
 		_, err = copyWithContext(r.Context(), w, decReader, copyBufferSize)
 		if err != nil {
-			if r.Context().Err() == context.Canceled {
+			if errors.Is(r.Context().Err(), context.Canceled) {
 				logger.Info("client disconnected during download")
 				return
 			}

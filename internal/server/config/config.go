@@ -23,15 +23,15 @@ func GetConfig(args []string) (*Config, error) {
 			DirFile:       config.DefaultDirFile,
 			TLSCertFile:   config.DefaultTLSCertFile,
 			TLSKeyFile:    config.DefaultTLSKeyFile,
-			SecretKey:     "secret2",
+			//SecretKey:     "secret2",
 			AuthConfig: config.AuthConfig{
 				AuthCookieName:     config.DefaultAuthCookieName,
 				AuthExpireDuration: config.DefaultAuthExpireDuration,
-				AuthSecretKey:      "secret",
+				//AuthSecretKey:      "secret",
 			},
 		},
-		DatabaseDsn: "host=127.127.126.41 port=5432 dbname=shorturl user=shorturl password=shorturl connect_timeout=10 sslmode=prefer",
-		LogLevel:    "info",
+		//DatabaseDsn: "host=127.127.126.41 port=5432 dbname=shorturl user=shorturl password=shorturl connect_timeout=10 sslmode=prefer",
+		LogLevel: "info",
 	}
 
 	if serverAddr := os.Getenv("RUN_ADDRESS"); serverAddr != "" {
