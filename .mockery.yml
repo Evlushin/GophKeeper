@@ -1,0 +1,23 @@
+all: false
+dir: '{{.InterfaceDir}}/mocks'
+filename: "mock_{{.InterfaceName}}.go"
+force-file-write: true
+formatter: gofmt
+include-auto-generated: false
+log-level: info
+structname: '{{.Mock}}{{.InterfaceName}}'
+pkgname: 'mocks'
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: '{{.Template}}.schema.json'
+packages:
+  github.com/Evlushin/GophKeeper/internal/server/handler/api/secret:
+    interfaces:
+      Secret:
+  github.com/Evlushin/GophKeeper/internal/client/service:
+    interfaces:
+      Repository:
+  github.com/Evlushin/GophKeeper/internal/server/service/secret:
+    interfaces:
+      Repository:
