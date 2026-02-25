@@ -28,7 +28,7 @@ func TestHandleRegister(t *testing.T) {
 	cfg := &config.Config{
 		AuthConfig: config.AuthConfig{
 			AuthCookieName:     config.DefaultAuthCookieName,
-			AuthSecretKey:      config.DefaultAuthSecretKey,
+			AuthSecretKey:      "secret",
 			AuthExpireDuration: config.DefaultAuthExpireDuration,
 		},
 	}
